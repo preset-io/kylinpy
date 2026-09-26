@@ -29,6 +29,20 @@ alternative, install by offline tarball package::
     pip install kylinpy-<version>.tar.gz
 
 
+Changes in 2.8.5.2
+------------------
+
+* A ``%`` that is not a placeholder is sent as literal SQL. Only
+  ``%(name)s``, ``%s`` and ``%%`` are interpreted when parameters are given,
+  so ``exec_driver_sql("... LIKE 'a%'")`` works, and a literal ``%s`` is never
+  consumed by a parameter mapping. Missing or surplus parameters raise
+  ``ProgrammingError``.
+* Timezone-aware ``datetime`` parameters raise ``ProgrammingError``: Kylin
+  ``TIMESTAMP`` literals carry no zone and Calcite rejects an offset. Pass a
+  naive ``datetime`` in the time zone of the stored data.
+* ``has_table`` matches names case-insensitively and, when a schema is given,
+  checks the single table instead of downloading the project catalog.
+
 Compatibility notes (2.8.5.1)
 -----------------------------
 
