@@ -62,6 +62,9 @@ PY
                         .venv/bin/python -m build --wheel --no-isolation
                         test -f "dist/$WHEEL" || { echo "missing dist/$WHEEL"; ls -1 dist; exit 1; }
                         test "$(ls -1 dist | wc -l)" -eq 1 || { echo "unexpected dist contents"; ls -1 dist; exit 1; }
+                        if .venv/bin/python -m zipfile -l "dist/$WHEEL" | awk '{print $1}' | grep -q '^tests/'; then
+                            echo "wheel must not ship the tests package"; exit 1
+                        fi
                         .venv/bin/pip install --force-reinstall --no-deps "dist/$WHEEL"
                         .venv/bin/python - <<'PY'
 import importlib.metadata as im

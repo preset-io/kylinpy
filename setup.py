@@ -33,7 +33,7 @@ setup(
     author_email='yongjie.zhao@kyligence.io',
     maintainer='Yongjie Zhao',
     maintainer_email='yongjie.zhao@kyligence.io',
-    packages=find_packages(),
+    packages=find_packages(exclude=['tests', 'tests.*']),
     url='https://github.com/Kyligence/kylinpy',
     license='MIT License',
     description='Apache Kylin Python Client Library',
