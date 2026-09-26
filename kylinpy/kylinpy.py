@@ -97,6 +97,22 @@ class Kylin(object):
             _full_names = [t for t in _full_names if t.split('.')[0] == schema]
         return [t.split('.')[1] for t in _full_names]
 
+    def table_exists(self, name, schema=None):
+        """Case-insensitive existence check without fetching the whole catalog
+        when the service supports a single-table lookup (the v1 API)."""
+        if schema and hasattr(self.service, 'table_exists'):
+            return self.service.table_exists(schema, name)
+        if self.is_pushdown:
+            _full_names = self.service.tables_in_hive().keys()
+        else:
+            _full_names = self.service.tables_and_columns().keys()
+        wanted_schema = schema.upper() if schema else None
+        for full_name in _full_names:
+            table_schema, table_name = full_name.split('.', 1)
+            if table_name.upper() == name.upper() and wanted_schema in (None, table_schema.upper()):
+                return True
+        return False
+
     def get_all_schemas(self):
         if self.is_pushdown:
             _full_names = sorted(list(self.service.tables_in_hive().keys()))

@@ -4,7 +4,8 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from kylinpy.client import InternalServerError, UnauthorizedError
+from kylinpy.client import InternalServerError, NotFoundError, UnauthorizedError
+from kylinpy.utils.compat import quote
 from kylinpy.exceptions import KylinQueryError, KylinCubeError, KylinJobError
 from ._service_interface import ServiceInterface
 
@@ -43,6 +44,10 @@ class _Api(object):
 
     @staticmethod
     def tables(client, endpoint, **kwargs):
+        return client.get(endpoint=endpoint, **kwargs).json()
+
+    @staticmethod
+    def table_desc(client, endpoint, **kwargs):
         return client.get(endpoint=endpoint, **kwargs).json()
 
     @staticmethod
@@ -167,6 +172,17 @@ class KylinService(ServiceInterface):
             )
             for tbl in resp
         )
+
+    def table_exists(self, schema, name):
+        """Look up one loaded table; Kylin resolves the name case-insensitively."""
+        endpoint = '/tables/{}/{}'.format(
+            quote(self.project or '', safe=''), quote('{}.{}'.format(schema, name), safe=''),
+        )
+        try:
+            self.api.table_desc(self.client, endpoint)
+        except NotFoundError:
+            return False
+        return True
 
     def tables_in_hive(self, **kwargs):
         params = {

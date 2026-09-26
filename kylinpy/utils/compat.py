@@ -13,7 +13,7 @@ try:
     from urllib.request import urlparse  # noqa
     from urllib.request import HTTPSHandler  # noqa
     from urllib.parse import urlencode  # noqa
-    from urllib.parse import parse_qsl, quote_plus  # noqa
+    from urllib.parse import parse_qsl, quote, quote_plus  # noqa
     from urllib.error import HTTPError  # noqa
 except ImportError:
     # Python 2
@@ -22,7 +22,7 @@ except ImportError:
     from urlparse import parse_qsl  # noqa
     from urllib2 import HTTPError  # noqa
     from urllib2 import HTTPSHandler  # noqa
-    from urllib import urlencode, quote_plus  # noqa
+    from urllib import urlencode, quote, quote_plus  # noqa
 
 try:
     # Python 3 (inspect.getargspec was removed in Python 3.11)

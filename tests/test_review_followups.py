@@ -111,3 +111,38 @@ def test_jenkins_release_step_works_without_a_change_number():
     env.update(PYTHON=sys.executable, BASE_VERSION='2.8.5.2', REVISION='0123456789ab')
     out = subprocess.check_output(['sh', '-c', command], cwd=str(ROOT), env=env)
     assert out.decode('utf-8').strip() == '2.8.5.2'
+
+
+# has_table resolves names case-insensitively, like Kylin, and uses a single-table lookup.
+@pytest.mark.parametrize('name,schema,expected', [
+    ('KYLIN_SALES', 'DEFAULT', True),
+    ('kylin_sales', 'default', True),
+    ('Kylin_Sales', 'DEFAULT', True),
+    ('kylin_sales', None, True),
+    ('default.kylin_sales', None, True),
+    ('no_such_table', 'default', False),
+    ('no_such_table', None, False),
+    ('kylin_sales', 'other_schema', False),
+])
+def test_has_table_is_case_insensitive(v1_api, name, schema, expected):
+    inspector = sa.inspect(sa.create_engine(DSN))
+    assert inspector.has_table(name, schema) is expected
+
+
+def test_has_table_with_schema_does_not_fetch_the_catalog(v1_api):
+    from kylinpy.service import KylinService
+    catalog = KylinService.api.tables_and_columns
+    catalog.reset_mock()
+    inspector = sa.inspect(sa.create_engine(DSN))
+    assert inspector.has_table('kylin_sales', 'default') is True
+    assert inspector.has_table('no_such_table', 'default') is False
+    assert catalog.call_count == 0
+    endpoints = [call.args[1] for call in KylinService.api.table_desc.call_args_list]
+    assert endpoints[-2:] == ['/tables/learn_kylin/default.kylin_sales', '/tables/learn_kylin/default.no_such_table']
+
+
+def test_single_table_lookup_quotes_path_segments(v1_api):
+    from kylinpy.service import KylinService
+    from kylinpy.kylinpy import Kylin
+    Kylin(host='sandbox', project='a b/c').table_exists('t/1', 's p')
+    assert KylinService.api.table_desc.call_args.args[1] == '/tables/a%20b%2Fc/s%20p.t%2F1'
