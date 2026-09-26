@@ -29,6 +29,26 @@ alternative, install by offline tarball package::
     pip install kylinpy-<version>.tar.gz
 
 
+Compatibility notes (2.8.5.1)
+-----------------------------
+
+This fork release supports SQLAlchemy 1.4.24 and later, including SQLAlchemy 2.0.
+
+* Reflection (``get_schema_names``, ``get_table_names``, ``get_columns``) and
+  ``Inspector.has_table`` work under SQLAlchemy 2. ``has_table`` now reports
+  whether the table exists instead of always returning ``False``.
+* Core ``select()`` statements compile and execute under SQLAlchemy 2, and the
+  dialect opts in to SQLAlchemy's compiled-statement cache.
+* DB-API parameters (``pyformat``, as used by SQLAlchemy ``text()`` binds) are
+  rendered client-side as SQL literals, because Kylin's query API accepts SQL
+  text only. ``None``, booleans, integers, finite floats and decimals,
+  ``date``, ``datetime`` and strings are supported; other types raise
+  ``ProgrammingError``.
+* ``DECIMAL`` results are returned as ``decimal.Decimal`` instead of ``float``,
+  so exact values are no longer rounded.
+* Importing the dialect no longer changes identifier quoting for other
+  SQLAlchemy dialects; Calcite keywords apply to Kylin's own preparer only.
+
 Apache Kylin dialect for SQLAlchemy
 -----------------------------------
 Any application that uses SQLAlchemy can now query Apache Kylin with this Apache Kylin dialect installed.
