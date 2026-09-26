@@ -29,6 +29,15 @@ alternative, install by offline tarball package::
     pip install kylinpy-<version>.tar.gz
 
 
+Changes in 2.8.5.3
+------------------
+
+* Column reflection keeps the scale of ``DECIMAL(p, s)`` when Kylin reports
+  it with a space after the comma (as its ``/tables_and_columns`` metadata
+  does), instead of reflecting ``DECIMAL(p)``.
+* ``TIMESTAMP(n)`` reflects as a timezone-naive ``TIMESTAMP``; the fractional
+  seconds precision was being passed as SQLAlchemy's ``timezone`` flag.
+
 Changes in 2.8.5.2
 ------------------
 
