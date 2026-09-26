@@ -15,6 +15,37 @@ def read(version, filename):
     return json.load(open(os.path.join(here, version, filename)))
 
 
+class _NotFound(object):
+    code = 404
+    reason = 'Not Found'
+    hdrs = {}
+
+    def read(self):
+        return b'{"exception": "Could not find Hive table"}'
+
+
+def _table_desc(tables_and_columns):
+    """Answer GET /tables/{project}/{db.table} the way Kylin does:
+    case-insensitively, with 404 for an unknown table."""
+    from kylinpy.client import NotFoundError
+    known = dict(
+        ('{}.{}'.format(t['table_SCHEM'], t['table_NAME']).upper(), t)
+        for t in tables_and_columns
+    )
+
+    def table_desc(client, endpoint, **kwargs):
+        full_name = endpoint.rsplit('/', 1)[1]
+        try:
+            from urllib.parse import unquote
+        except ImportError:  # Python 2
+            from urllib import unquote
+        found = known.get(unquote(full_name).upper())
+        if found is None:
+            raise NotFoundError(_NotFound())
+        return {'name': found['table_NAME'], 'database': found['table_SCHEM']}
+    return table_desc
+
+
 @pytest.fixture
 def v1_api(mocker):
     cube_desc = read('v1', 'cube_desc.json')
@@ -36,6 +67,11 @@ def v1_api(mocker):
     mocker.patch('kylinpy.service.KylinService.api.tables', return_value=tables)
     mocker.patch('kylinpy.service.KylinService.api.tables_and_columns', return_value=tables_and_columns)
     mocker.patch('kylinpy.service.KylinService.api.authentication', return_value=authentication)
+    mocker.patch(
+        'kylinpy.service.KylinService.api.table_desc',
+        side_effect=_table_desc(read('v1', 'tables_and_columns.json')),
+        create=True,
+    )
     mocker.patch('kylinpy.service.KylinService.api.build', return_value={'build': 'success'})
     mocker.patch('kylinpy.service.KylinService.api.build_streaming', return_value={'success': 'success'})
     mocker.patch('kylinpy.service.KylinService.api.delete_segment', return_value={'success': 'success'})

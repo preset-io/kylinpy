@@ -34,7 +34,8 @@ podTemplate(
                         .venv/bin/pip install --no-deps .
                         .venv/bin/python -m pytest -q tests
                         BASE_VERSION=$(.venv/bin/python -c "import re; print(re.search(r\\"^__version__ = '([^']*)'\\", open('kylinpy/__init__.py').read(), re.M).group(1))")
-                        .venv/bin/python ci/release_version.py "$BASE_VERSION" "$CHANGE_NUMBER" "$REVISION" > release.version
+                        # Jenkins drops an empty withEnv value, so master builds have no CHANGE_NUMBER.
+                        .venv/bin/python ci/release_version.py "$BASE_VERSION" "${CHANGE_NUMBER:-}" "$REVISION" > release.version
                     '''
                 }
                 version = readFile('release.version').trim()

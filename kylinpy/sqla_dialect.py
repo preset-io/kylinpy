@@ -118,7 +118,7 @@ class KylinDialect(default.DefaultDialect):
     def has_table(self, connection, table_name, schema=None, **kw):
         if schema is None and '.' in table_name:
             schema, table_name = table_name.split('.', 1)
-        return table_name in _dbapi_connection(connection).get_all_tables(schema)
+        return _dbapi_connection(connection).table_exists(table_name, schema)
 
     def has_sequence(self, connection, sequence_name, schema=None, **kw):
         return False
