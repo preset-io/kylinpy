@@ -43,11 +43,26 @@ KylinType = dict(
 
 
 # Only these types take their parenthesised arguments as SQLAlchemy
-# constructor arguments (length, or precision and scale). For the others the
-# arguments mean something else (for example TIMESTAMP(3) is a fractional
-# seconds precision, not SQLAlchemy's positional ``timezone`` flag), so they
-# are dropped.
-_PARAMETERIZED = frozenset(('CHAR', 'STRING', 'VARCHAR', 'DECIMAL', 'DOUBLE', 'FLOAT'))
+# constructor arguments, and only this many of them: a length, or DECIMAL's
+# precision and scale. FLOAT takes a precision only; its second positional
+# argument is ``asdecimal``, not a scale. For the other types the arguments
+# mean something else (for example TIMESTAMP(3) is a fractional seconds
+# precision, not SQLAlchemy's positional ``timezone`` flag, and INTEGER(11) is
+# a display width), so they are dropped.
+_PARAMETERIZED = dict(CHAR=1, STRING=1, VARCHAR=1, DECIMAL=2, DOUBLE=1, FLOAT=1)
+
+
+def _type_args(arg_text, max_args):
+    # Keep the leading integer arguments, up to what the constructor takes, so
+    # an unexpected shape such as 'DECIMAL(12,)' or 'DECIMAL(12,2,3)' keeps the
+    # arguments it can rather than dropping them all.
+    args = []
+    for part in (arg_text or '').split(','):
+        part = part.strip()
+        if not part.isdigit() or len(args) == max_args:
+            break
+        args.append(int(part))
+    return args
 
 
 def kylin_to_sqla(s):
@@ -57,10 +72,10 @@ def kylin_to_sqla(s):
     # arguments so the scale is not silently dropped.
     keys = list(sorted(KylinType.keys(), key=len, reverse=True))
     type_re = re.compile(
-        r'^\s*({})\s*(?:\(\s*(\d+)?\s*(?:,\s*(\d+)\s*)?\))?.*$'.format('|'.join(keys)),
+        r'^\s*({})\s*(?:\(([^)]*)\))?.*$'.format('|'.join(keys)),
         flags=re.IGNORECASE | re.DOTALL,
     )
-    type_tuple = type_re.match(s).groups()
-    _type = type_tuple[0].upper()
-    _args = [int(e) for e in type_tuple[1:] if e] if _type in _PARAMETERIZED else []
+    _type, arg_text = type_re.match(s).groups()
+    _type = _type.upper()
+    _args = _type_args(arg_text, _PARAMETERIZED.get(_type, 0))
     return KylinType.get(_type)(*_args)

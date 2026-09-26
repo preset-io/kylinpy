@@ -36,7 +36,13 @@ Changes in 2.8.5.3
   it with a space after the comma (as its ``/tables_and_columns`` metadata
   does), instead of reflecting ``DECIMAL(p)``.
 * ``TIMESTAMP(n)`` reflects as a timezone-naive ``TIMESTAMP``; the fractional
-  seconds precision was being passed as SQLAlchemy's ``timezone`` flag.
+  seconds precision was being passed as SQLAlchemy's ``timezone`` flag;
+  ``DATETIME(n)`` likewise reflects as a timezone-naive ``DATETIME``.
+* Integer types reported with a display width (``INTEGER(11)``,
+  ``BIGINT(20)``, ``TINYINT(4)``) reflect as ``INTEGER``/``BIGINT``/
+  ``SMALLINT`` instead of raising ``TypeError``.
+* ``DOUBLE(p, s)``/``FLOAT(p, s)`` reflect as ``FLOAT(p)``; the scale was being
+  passed as SQLAlchemy's ``asdecimal`` flag, so values came back as ``Decimal``.
 
 Changes in 2.8.5.2
 ------------------

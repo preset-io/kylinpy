@@ -38,6 +38,11 @@ def test_int():
     assert str(kylin_to_sqla('SMALLINT')) == 'SMALLINT'
     assert str(kylin_to_sqla('INT4')) == 'BIGINT'
     assert str(kylin_to_sqla('LONG8')) == 'BIGINT'
+    # A display width is not a constructor argument of the integer types.
+    assert str(kylin_to_sqla('INTEGER(11)')) == 'INTEGER'
+    assert str(kylin_to_sqla('INT(11)')) == 'INTEGER'
+    assert str(kylin_to_sqla('BIGINT(20)')) == 'BIGINT'
+    assert str(kylin_to_sqla('TINYINT(4)')) == 'SMALLINT'
 
 
 def test_others():
@@ -71,3 +76,23 @@ def test_timestamp_precision_is_not_a_timezone_flag():
         ts = kylin_to_sqla(spec)
         assert ts.timezone is False
         assert str(ts) == 'TIMESTAMP'
+
+
+def test_datetime_precision_is_not_a_timezone_flag():
+    dt = kylin_to_sqla('DATETIME(6)')
+    assert dt.timezone is False
+    assert str(dt) == 'DATETIME'
+
+
+def test_float_takes_precision_only():
+    # Float's second positional argument is asdecimal, not a scale.
+    for spec in ('DOUBLE(10,2)', 'FLOAT(10, 2)'):
+        float_obj = kylin_to_sqla(spec)
+        assert float_obj.precision == 10
+        assert float_obj.asdecimal is False
+
+
+def test_unexpected_argument_shapes_keep_leading_arguments():
+    assert str(kylin_to_sqla('DECIMAL(12,)')) == 'DECIMAL(12)'
+    assert str(kylin_to_sqla('DECIMAL(12,2,3)')) == 'DECIMAL(12, 2)'
+    assert str(kylin_to_sqla('DECIMAL()')) == 'DECIMAL'
