@@ -38,6 +38,11 @@ def test_int():
     assert str(kylin_to_sqla('SMALLINT')) == 'SMALLINT'
     assert str(kylin_to_sqla('INT4')) == 'BIGINT'
     assert str(kylin_to_sqla('LONG8')) == 'BIGINT'
+    # A display width is not a constructor argument of the integer types.
+    assert str(kylin_to_sqla('INTEGER(11)')) == 'INTEGER'
+    assert str(kylin_to_sqla('INT(11)')) == 'INTEGER'
+    assert str(kylin_to_sqla('BIGINT(20)')) == 'BIGINT'
+    assert str(kylin_to_sqla('TINYINT(4)')) == 'SMALLINT'
 
 
 def test_others():
@@ -45,3 +50,49 @@ def test_others():
     assert str(kylin_to_sqla('DATE')) == 'DATE'
     assert str(kylin_to_sqla('DATETIME')) == 'DATETIME'
     assert str(kylin_to_sqla('TIMESTAMP')) == 'TIMESTAMP'
+
+
+def test_decimal_with_space_after_comma_keeps_scale():
+    # Kylin's /tables_and_columns metadata reports 'DECIMAL(12, 2)'.
+    decimal_obj = kylin_to_sqla('DECIMAL(12, 2)')
+    assert decimal_obj.precision == 12
+    assert decimal_obj.scale == 2
+    assert str(decimal_obj) == 'DECIMAL(12, 2)'
+
+    decimal_obj = kylin_to_sqla('decimal( 19 , 4 )')
+    assert (decimal_obj.precision, decimal_obj.scale) == (19, 4)
+
+
+def test_varchar_with_charset_suffix():
+    string_obj = kylin_to_sqla(
+        'VARCHAR(256) CHARACTER SET "UTF-16LE" COLLATE "UTF-16LE$en_US$primary"')
+    assert string_obj.length == 256
+
+
+def test_timestamp_precision_is_not_a_timezone_flag():
+    # Kylin reports TIMESTAMP(0)/TIMESTAMP(3); the number is fractional-second
+    # precision and must not become SQLAlchemy's positional timezone argument.
+    for spec in ('TIMESTAMP(0)', 'TIMESTAMP(3)', 'TIMESTAMP'):
+        ts = kylin_to_sqla(spec)
+        assert ts.timezone is False
+        assert str(ts) == 'TIMESTAMP'
+
+
+def test_datetime_precision_is_not_a_timezone_flag():
+    dt = kylin_to_sqla('DATETIME(6)')
+    assert dt.timezone is False
+    assert str(dt) == 'DATETIME'
+
+
+def test_float_takes_precision_only():
+    # Float's second positional argument is asdecimal, not a scale.
+    for spec in ('DOUBLE(10,2)', 'FLOAT(10, 2)'):
+        float_obj = kylin_to_sqla(spec)
+        assert float_obj.precision == 10
+        assert float_obj.asdecimal is False
+
+
+def test_unexpected_argument_shapes_keep_leading_arguments():
+    assert str(kylin_to_sqla('DECIMAL(12,)')) == 'DECIMAL(12)'
+    assert str(kylin_to_sqla('DECIMAL(12,2,3)')) == 'DECIMAL(12, 2)'
+    assert str(kylin_to_sqla('DECIMAL()')) == 'DECIMAL'
