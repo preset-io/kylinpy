@@ -7,6 +7,12 @@ from __future__ import unicode_literals
 import datetime
 import decimal
 import math
+import re
+
+try:
+    from collections.abc import Mapping
+except ImportError:  # Python 2
+    from collections import Mapping
 
 from kylinpy.client import HTTPError
 from kylinpy.kylinpy import Kylin
@@ -40,6 +46,13 @@ def escape_parameter(value):
             raise ProgrammingError('Unsupported non-finite decimal parameter: {!r}'.format(value))
         return str(value)
     if isinstance(value, datetime.datetime):
+        if value.utcoffset() is not None:
+            # Kylin TIMESTAMP literals carry no zone and Calcite rejects an
+            # offset suffix; converting silently would shift the instant.
+            raise ProgrammingError(
+                'Timezone-aware datetime parameters are not supported ({!r}); '
+                'pass a naive datetime in the time zone of the stored data.'.format(value),
+            )
         return "TIMESTAMP '{}'".format(value.isoformat(sep=str(' ')))
     if isinstance(value, datetime.date):
         return "DATE '{}'".format(value.isoformat())
@@ -50,13 +63,48 @@ def escape_parameter(value):
     raise ProgrammingError('Unsupported parameter type: {}'.format(type(value).__name__))
 
 
+_PLACEHOLDER = re.compile(r'%\((?P<name>[^)]*)\)s|%s|%%')
+
+
 def bind_parameters(query, parameters):
-    """Apply DB-API pyformat parameters (a mapping) or format parameters (a sequence)."""
+    """Apply DB-API pyformat parameters (a mapping) or format parameters (a sequence).
+
+    Only ``%(name)s`` (mapping), ``%s`` (sequence) and ``%%`` are interpreted.
+    Any other ``%`` is literal SQL, so a statement such as ``LIKE 'a%'`` run
+    with empty parameters is sent unchanged instead of failing, and a literal
+    ``%s`` is never consumed by a mapping. Parameters given as ``None`` leave
+    the statement untouched.
+    """
     if parameters is None:
         return query
-    if isinstance(parameters, dict):
-        return query % {key: escape_parameter(value) for key, value in parameters.items()}
-    return query % tuple(escape_parameter(value) for value in parameters)
+    by_name = isinstance(parameters, Mapping)
+    values = None if by_name else [escape_parameter(value) for value in parameters]
+    position = [0]
+
+    def substitute(match):
+        token = match.group(0)
+        if token == '%%':
+            return '%'
+        name = match.group('name')
+        if name is not None:
+            if not by_name:
+                raise ProgrammingError('Named placeholder %({})s needs mapping parameters'.format(name))
+            if name not in parameters:
+                raise ProgrammingError('Missing parameter: {!r}'.format(name))
+            return escape_parameter(parameters[name])
+        if by_name:
+            return token
+        if position[0] >= len(values):
+            raise ProgrammingError('Not enough parameters for the %s placeholders')
+        position[0] += 1
+        return values[position[0] - 1]
+
+    bound = _PLACEHOLDER.sub(substitute, query)
+    if not by_name and position[0] != len(values):
+        raise ProgrammingError(
+            '{} parameters supplied for {} %s placeholders'.format(len(values), position[0]),
+        )
+    return bound
 
 
 class Cursor(object):
