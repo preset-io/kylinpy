@@ -101,8 +101,8 @@ def test_naive_datetime_literal_has_no_offset():
 def test_jenkins_release_step_works_without_a_change_number():
     jenkinsfile = (ROOT / 'Jenkinsfile').read_text()
     line = next(
-        l.strip() for l in jenkinsfile.splitlines()
-        if l.strip().startswith('.venv/bin/python ci/release_version.py')
+        line.strip() for line in jenkinsfile.splitlines()
+        if line.strip().startswith('.venv/bin/python ci/release_version.py')
     )
     command = 'set -eu; ' + re.sub(r'^\.venv/bin/python', '"$PYTHON"', line).replace(
         '> release.version', '',
