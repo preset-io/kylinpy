@@ -4,10 +4,59 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import datetime
+import decimal
+import math
+
 from kylinpy.client import HTTPError
 from kylinpy.kylinpy import Kylin
-from kylinpy.utils.compat import as_unicode
+from kylinpy.utils.compat import as_unicode, binary_type, integer_types, string_types
 from kylinpy.utils.kylin_types import kylin_to_python
+
+
+class ProgrammingError(Exception):
+    pass
+
+
+def escape_parameter(value):
+    """Render one Python value as a Kylin (Calcite) SQL literal.
+
+    Kylin's query API takes SQL text only, so pyformat parameters are bound
+    client-side. Strings use standard SQL quoting (a single quote is doubled;
+    backslash is not an escape character in Calcite string literals).
+    """
+    if value is None:
+        return 'NULL'
+    if isinstance(value, bool):
+        return 'TRUE' if value else 'FALSE'
+    if isinstance(value, integer_types):
+        return str(int(value))
+    if isinstance(value, float):
+        if math.isnan(value) or math.isinf(value):
+            raise ProgrammingError('Unsupported non-finite float parameter: {!r}'.format(value))
+        return repr(value)
+    if isinstance(value, decimal.Decimal):
+        if not value.is_finite():
+            raise ProgrammingError('Unsupported non-finite decimal parameter: {!r}'.format(value))
+        return str(value)
+    if isinstance(value, datetime.datetime):
+        return "TIMESTAMP '{}'".format(value.isoformat(sep=str(' ')))
+    if isinstance(value, datetime.date):
+        return "DATE '{}'".format(value.isoformat())
+    if isinstance(value, binary_type) and not isinstance(value, string_types):
+        raise ProgrammingError('Unsupported bytes parameter')
+    if isinstance(value, string_types):
+        return "'{}'".format(value.replace("'", "''"))
+    raise ProgrammingError('Unsupported parameter type: {}'.format(type(value).__name__))
+
+
+def bind_parameters(query, parameters):
+    """Apply DB-API pyformat parameters (a mapping) or format parameters (a sequence)."""
+    if parameters is None:
+        return query
+    if isinstance(parameters, dict):
+        return query % {key: escape_parameter(value) for key, value in parameters.items()}
+    return query % tuple(escape_parameter(value) for value in parameters)
 
 
 class Cursor(object):
@@ -38,9 +87,8 @@ class Cursor(object):
         ] for c in self._column_metas)
 
     def execute(self, query, parameters=None):
-        if parameters is None:
-            parameters = {}
-        resp = self.connection.query(query, **parameters)
+        # Parameters are SQL values, never REST request options.
+        resp = self.connection.query(bind_parameters(query, parameters))
 
         self._column_metas = resp.get('columnMetas')
         self.results = [tuple([
@@ -104,6 +152,7 @@ class Connection(Kylin):
     threadsafety = 2
     apilevel = '2.0'
     Error = HTTPError
+    ProgrammingError = ProgrammingError
 
     def __init__(self, **kwargs):
         super(Connection, self).__init__(**kwargs)

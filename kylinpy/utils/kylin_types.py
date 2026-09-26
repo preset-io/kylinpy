@@ -5,6 +5,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 from datetime import datetime
+from decimal import Decimal
 import re
 
 from kylinpy.exceptions import KylinUnsupportedType
@@ -17,7 +18,8 @@ KylinType = dict(
     CHAR=text_type,
     VARCHAR=text_type,
     STRING=text_type,
-    DECIMAL=float,
+    # Kylin returns DECIMAL values as exact strings; keep them exact.
+    DECIMAL=Decimal,
     DOUBLE=float,
     FLOAT=float,
     BIGINT=int,

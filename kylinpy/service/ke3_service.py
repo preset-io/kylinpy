@@ -117,10 +117,14 @@ class KE3Service(ServiceInterface):
         }
         kwargs.setdefault('params', params)
         resp = self.api.tables_and_columns(self.client, '/tables_and_columns', **kwargs)
-        tbl_pair = tuple(('{}.{}'.format(tbl.get('table_SCHEM'), tbl.get('table_NAME')), tbl) for tbl in resp)
-        for tbl in tbl_pair:
-            tbl[1]['columns'] = [(col['column_NAME'], col) for col in tbl[1]['columns']]
-        return dict(tbl_pair)
+        # Build new mappings; never rewrite the response objects in place.
+        return dict(
+            (
+                '{}.{}'.format(tbl.get('table_SCHEM'), tbl.get('table_NAME')),
+                dict(tbl, columns=[(col['column_NAME'], col) for col in tbl['columns']]),
+            )
+            for tbl in resp
+        )
 
     def tables_in_hive(self, **kwargs):
         params = {

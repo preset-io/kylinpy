@@ -8,7 +8,7 @@ import json
 import os
 import sys
 
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine, inspect, text
 
 from kylinpy.utils.compat import as_unicode, quote_plus
 
@@ -43,12 +43,13 @@ class TestDialect(object):
 
     def test_query(self, v1_api):
         engine = create_engine('kylin://ADMIN:KYLIN@sandbox/learn_kylin')
-        rp = engine.execute('select count(*) from kylin_sales')
-        assert [row[0] for row in rp.fetchall()] == [10000]
+        with engine.connect() as conn:
+            rp = conn.execute(text('select count(*) from kylin_sales'))
+            assert [row[0] for row in rp.fetchall()] == [10000]
 
     def test_table_names(self, v1_api):
         engine = create_engine('kylin://ADMIN:KYLIN@sandbox/learn_kylin')
-        assert engine.table_names() == [
+        assert inspect(engine).get_table_names() == [
             'KYLIN_ACCOUNT',
             'KYLIN_CAL_DT',
             'KYLIN_CATEGORY_GROUPINGS',

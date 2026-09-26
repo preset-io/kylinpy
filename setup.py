@@ -41,7 +41,7 @@ setup(
     long_description_content_type='text/x-rst',
     install_requires=[],
     extras_require={
-        'sqlalchemy': ['sqlalchemy>=1.1.0'],
+        'sqlalchemy': ['sqlalchemy>=1.4.24,<3'],
     },
     keywords=['apache kylin', 'kylin', 'kap', 'kyligence',
               'kyligence enterprise', 'cli', 'sqlalchemy dialect'],
