@@ -7,7 +7,7 @@ from __future__ import unicode_literals
 import inspect
 
 from kylinpy.utils.sqla_types import kylin_to_sqla
-from kylinpy.utils.compat import to_millisecond_timestamp
+from kylinpy.utils.compat import getargspec, to_millisecond_timestamp
 from ._source_interface import (
     DimensionInterface, MeasureInterface, SourceInterface,
 )
@@ -225,7 +225,7 @@ class CubeSource(SourceInterface):
         ):
             raise KylinCubeError('Unsupported invoke command for datasource: {}'.format(command))
 
-        eager_args = [arg for arg in inspect.getargspec(fn).args if arg != 'self']
+        eager_args = [arg for arg in getargspec(fn).args if arg != 'self']
         args = {key: kwargs[key] for key in kwargs.keys() if key in eager_args}
         return fn(**args)
 

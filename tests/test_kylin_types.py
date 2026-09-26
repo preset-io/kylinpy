@@ -5,6 +5,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 from datetime import date, datetime
+from decimal import Decimal
 
 import pytest
 
@@ -18,15 +19,15 @@ def test_kylin_types():
 
     assert kylin_to_python('varchar', 'abc') == 'abc'
     assert kylin_to_python('varchar(256)', 'abc') == 'abc'
-    assert kylin_to_python('DECIMAL(20, 6)', '3.1415926') == 3.1415926
+    assert kylin_to_python('DECIMAL(20, 6)', '3.1415926') == Decimal('3.1415926')
     assert kylin_to_python('BIGINT not null', '123456') == 123456
     assert kylin_to_python('INTEGER null', '123456') == 123456
-    assert kylin_to_python('DECIMAL(20, 6) NOT null', '123456.123') == 123456.123
+    assert kylin_to_python('DECIMAL(20, 6) NOT null', '123456.123') == Decimal('123456.123')
 
     assert kylin_to_python('CHAR', 'abc') == 'abc'
     assert kylin_to_python('VARCHAR', 'abc') == 'abc'
     assert kylin_to_python('STRING', 'abc') == 'abc'
-    assert kylin_to_python('DECIMAL', '3.1415926') == 3.1415926
+    assert kylin_to_python('DECIMAL', '3.1415926') == Decimal('3.1415926')
     assert kylin_to_python('DOUBLE', '3.1415926') == 3.1415926
     assert kylin_to_python('FLOAT', '3.1415926') == 3.1415926
     assert kylin_to_python('BIGINT', '3') == 3

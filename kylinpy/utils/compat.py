@@ -24,6 +24,13 @@ except ImportError:
     from urllib2 import HTTPSHandler  # noqa
     from urllib import urlencode, quote_plus  # noqa
 
+try:
+    # Python 3 (inspect.getargspec was removed in Python 3.11)
+    from inspect import getfullargspec as getargspec  # noqa
+except ImportError:
+    # Python 2
+    from inspect import getargspec  # noqa
+
 PY3 = sys.version_info[0] == 3
 
 if PY3:

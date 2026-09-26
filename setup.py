@@ -33,7 +33,7 @@ setup(
     author_email='yongjie.zhao@kyligence.io',
     maintainer='Yongjie Zhao',
     maintainer_email='yongjie.zhao@kyligence.io',
-    packages=find_packages(),
+    packages=find_packages(exclude=['tests', 'tests.*']),
     url='https://github.com/Kyligence/kylinpy',
     license='MIT License',
     description='Apache Kylin Python Client Library',
@@ -41,7 +41,7 @@ setup(
     long_description_content_type='text/x-rst',
     install_requires=[],
     extras_require={
-        'sqlalchemy': ['sqlalchemy>=1.1.0'],
+        'sqlalchemy': ['sqlalchemy>=1.4.24,<3'],
     },
     keywords=['apache kylin', 'kylin', 'kap', 'kyligence',
               'kyligence enterprise', 'cli', 'sqlalchemy dialect'],

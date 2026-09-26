@@ -22,9 +22,11 @@ SUPERSET_KEYWORDS = set([
 
 
 class KylinIdentifierPreparer(compiler.IdentifierPreparer):
-    compiler.IdentifierPreparer.reserved_words = \
-        set(itertools.chain(*[[e.lower(), e] for e in CALCITE_KEYWORDS]))
-    compiler.IdentifierPreparer.reserved_words.update(SUPERSET_KEYWORDS)
+    # Scoped to this preparer. Assigning to the base IdentifierPreparer would
+    # change identifier quoting for every other dialect in the process.
+    reserved_words = set(
+        itertools.chain(*[[e.lower(), e] for e in CALCITE_KEYWORDS]),
+    ) | SUPERSET_KEYWORDS
 
     def __init__(self, dialect, initial_quote='"',
                  final_quote=None, escape_quote='"', omit_schema=True):
@@ -37,25 +39,19 @@ class KylinIdentifierPreparer(compiler.IdentifierPreparer):
 
 
 class KylinSQLCompiler(compiler.SQLCompiler):
-    _cached_metadata = set()
+    pass
 
-    def __init__(self, *args, **kwargs):
-        super(KylinSQLCompiler, self).__init__(*args, **kwargs)
 
-    def visit_column(self, *args, **kwargs):
-        result = super(KylinSQLCompiler, self).visit_column(*args, **kwargs)
-        return result
+def _dbapi_connection(connection):
+    """Return the kylinpy DB-API connection behind a SQLAlchemy Connection.
 
-    def visit_label(self, *args, **kwargs):
-        self.__class__._cached_metadata.add([c.name for c in args][0])
-        result = super(KylinSQLCompiler, self).visit_label(*args, **kwargs)
-        return result
+    SQLAlchemy 2.0 removed ``Connection.connect()``; reflection receives a
+    Connection and must reach the driver connection through the pool proxy.
+    """
+    return connection.connection.dbapi_connection
 
 
 class KylinDialect(default.DefaultDialect):
-    def get_primary_keys(self, connection, table_name, schema=None, **kw):
-        pass
-
     name = 'kylin'
     driver = 'kylin'
 
@@ -71,6 +67,8 @@ class KylinDialect(default.DefaultDialect):
     supports_native_boolean = True
     poolclass = pool.SingletonThreadPool
     supports_unicode_statements = True
+    # The compiler holds no per-statement state, so compiled forms are cacheable.
+    supports_statement_cache = True
 
     default_paramstyle = 'pyformat'
 
@@ -78,7 +76,12 @@ class KylinDialect(default.DefaultDialect):
         super(KylinDialect, self).__init__(*args, **kwargs)
 
     @classmethod
+    def import_dbapi(cls):
+        return Connection
+
+    @classmethod
     def dbapi(cls):
+        # SQLAlchemy < 2.0 entry point.
         return Connection
 
     def initialize(self, connection):
@@ -107,26 +110,22 @@ class KylinDialect(default.DefaultDialect):
         super(KylinDialect, self).do_execute(cursor, statement, parameters, context)
 
     def get_table_names(self, connection, schema=None, **kw):
-        conn = connection.connect()
-        tables = conn.connection.connection.get_all_tables(schema)
-        return tables
+        return _dbapi_connection(connection).get_all_tables(schema)
 
     def get_schema_names(self, connection, schema=None, **kw):
-        conn = connection.connect()
-        schemas = conn.connection.connection.get_all_schemas()
-        return schemas
+        return sorted(_dbapi_connection(connection).get_all_schemas())
 
-    def has_table(self, connection, table_name, schema=None):
-        # disable check table exists
-        return False
+    def has_table(self, connection, table_name, schema=None, **kw):
+        if schema is None and '.' in table_name:
+            schema, table_name = table_name.split('.', 1)
+        return table_name in _dbapi_connection(connection).get_all_tables(schema)
 
-    def has_sequence(self, connection, sequence_name, schema=None):
+    def has_sequence(self, connection, sequence_name, schema=None, **kw):
         return False
 
     def get_columns(self, connection, table_name, schema=None, **kw):
-        conn = connection.connect()
         try:
-            columns = conn.connection.connection.get_table_source(table_name, schema).columns
+            columns = _dbapi_connection(connection).get_table_source(table_name, schema).columns
             return [{
                 'name': col.name,
                 'type': kylin_to_sqla(col.datatype),
@@ -143,8 +142,9 @@ class KylinDialect(default.DefaultDialect):
     def get_view_names(self, connection, schema=None, **kw):
         return []
 
-    def get_pk_constraint(self, conn, table_name, schema=None, **kw):
-        return {}
+    def get_pk_constraint(self, connection, table_name, schema=None, **kw):
+        # Kylin has no primary keys; SQLAlchemy 2 expects this shape.
+        return {'constrained_columns': [], 'name': None}
 
     def get_unique_constraints(self, connection, table_name, schema=None, **kw):
         return []
